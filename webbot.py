@@ -1,56 +1,61 @@
+from bs4 import BeautifulSoup
 import mechanize
 import time
-from bs4 import BeautifulSoup
-import re
-import urllib
-import string
 import os
+import urllib.request
 
-def downloadProcess (html, base, filetype, linkList):
-    "This does the actual file downloading."
-    soup = BeautifulSoup(html)
-    for link in soup.find_all('a'):
-        linkText = str(link.get('href'))
 
-        if filetype in linkText:
-            slashList = [i for i, ind in enumerate(linkText) if ind == '/']
-            directoryName = linkText[(slashList[0]+1):slashList[1]]
-            if not os.path.exists(directoryName):
-                os.makedirs(directoryName)
+start = "http://" + input("Initial website: \n")
+file_type = input("file extension: \n")
 
-            image = urllib.URLopener()
-            linkGet = base + linkText
-            filesave = string.lstrip(linkText, "/")
-            image.retrieve (linkGet, filesave)
-        elif "htm" in linkText: #covers both "html" and "htm"
-            linkList.append(link)
+num_slash = start.count('/') #slash counting after third
+slash_list = [i for i, ind in enumerate(start) if ind == '/'] #list of slashes
 
-start = "http://" + raw_input ("Where would you like to start searching?\n")
-filetype = raw_input ("What file type are you looking for?\n")
-
-numSlash = start.count('/') #number of slashes in start - need to remove everything after third slashe
-slashList = [i for i, ind in enumerate(start) if ind == '/'] #list of indices of slashes
-
-if (len(slashList) >= 3): #if there are 3 or more slashes, cut after 3
-    third = slashList[2]
-    base = start[:third] #base is everything up to third slash
+if (len(slash_list) >= 3): #if there are more than 3 slashes, there will be the cut.
+    third = slash_list[2]
+    base = start[:third] #base is everything untill third slash
 else:
     base = start
 
 br = mechanize.Browser()
 r = br.open(start)
 html = r.read()
-linkList = [] #empty list of links
+soup = BeautifulSoup(html, 'xml')
+#print(soup.prettify()) #nice web structure
 
-print "Parsing " + start
-downloadProcess(html, base, filetype, linkList)
 
-for leftover in linkList:
-    time.sleep(0.1) #wait 0.1 seconds to avoid overloading server
-    linkText = str(leftover.get('href'))
-    print "Parsing " + base + linkText
+link_list = []
+
+def download_files(html, base, file_type, link_list):
+    soup = BeautifulSoup(html, 'xml')
+    for link in soup.find_all('a'): #finding all links (most common soup command
+        link_text = str(link) 
+        file_name = str(link.get('href'))
+        if file_type in link_text: #creating directories
+            slash_list = [i for i, ind in enumerate(link_text) if ind == '/']
+            directory_name = link_text[(slash_list[0]+1):slash_list[1]]
+            if not os.path.exists(directory_name):
+                os.makedirs(directory_name)
+                
+        #if file_type in file_name: #this was an intermediate command. it is no longer needed.
+            #image = urllib.request.urlopen(start)    #that is no longer necessary after importing urllib.request
+            link_get = base + file_name
+            file_save = str.lstrip(file_name, '/')
+            urllib.request.urlretrieve(link_get, file_save)
+        elif "htm" in file_name:
+            link_list.append(link) 
+        #this function download files, if the link is not the desired file, it'll go to this link list, and next these links will be evaluated for files.
+            
+            
+print("Parsing " + start)    #let's just have some status messages on terminal      
+download_files(html, base, file_type, link_list)
+
+for left_over in link_list:
+    time.sleep(0.1) #this is here to avoid server overload. polite bot.
+    link_text = str(left_over.get('href'))
+    print ("Parsing " + base + link_text)
     br = mechanize.Browser()
-    r = br.open(base + linkText)
+    r = br.open(base + link_text)
     html = r.read()
-    linkList = []
-    downloadProcess(html, base, filetype, linkList)
+    link_list = []
+    download_files(html, base, file_type, link_list)
